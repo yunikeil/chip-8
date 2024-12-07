@@ -21,7 +21,7 @@ cpu = CPU(
     display=display,
 )
 
-cpu.load(ROMS.BAD_APPLE_LONG)
+cpu.load(ROMS.HOLO_IMG)
 
 # cpu.display = Display(
 #     width=constants.SCREEN_WIDTH,

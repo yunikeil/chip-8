@@ -153,7 +153,7 @@ class CPU:
     def run(self):
         try:
             while True:
-                sleep(0.1)
+                sleep(0.001)
                 self.__step()
         except KeyboardInterrupt:
             self.__logger.info("Interrupted")

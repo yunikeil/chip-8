@@ -173,3 +173,7 @@ test.py
 test[0-9].py
 test.ipynb
 test[0-9].ipynb
+
+Octo
+
+.DS_Store
