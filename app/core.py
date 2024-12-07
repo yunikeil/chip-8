@@ -116,8 +116,13 @@ class CPU:
             case (0xD, vx, vy, n):
                 self.__draw_sprite(vx, vy, n, b2)
             case (0xE, _, 9, 0xE):
+                # control ..
                 ...
             case (0xE, _, 0xA, 1):
+                # control ..
+                ...
+            case (0xF, _, 0x0, 0xA):
+                # control ..
                 ...
             case (0xF, _, 0, 7):
                 self.__set_register_to_delay_timer(n2, n3, n4, b2)
@@ -136,6 +141,8 @@ class CPU:
             case (0xF, _, 6, 5):
                 self.__load_registers(n2, n3, n4, b2)
             case _:
+
+                self.__logger.error(f"code: {list(map(hex, instruction))}; {hex((b1 << 8) | b2)}")
                 raise ValueError(f"Unknown operation {list(map(hex, (n1, n2, n3, n4)))}")
 
     def __step(self):
@@ -146,7 +153,7 @@ class CPU:
     def run(self):
         try:
             while True:
-                sleep(0.001)
+                sleep(0.1)
                 self.__step()
         except KeyboardInterrupt:
             self.__logger.info("Interrupted")
@@ -225,6 +232,7 @@ class CPU:
 
     def __set_register_to_random(self, n2, n3, n4, b2):
         self.registers[n2] = randint(0, 0xFF) & b2
+        print(123)
 
     def __draw_sprite(self, vx, vy, n, b2):
         x = self.registers[vx]
@@ -261,7 +269,8 @@ class CPU:
     def __binary_coded_decimal(self, n2, n3, n4, b2):
         num = str(int(self.registers[n2]))
         if self.index_register > len(self.registers):
-            self.__logger.warning("out of range on FX33: ", self.index_register)
+            self.__logger.warning(f"out of range on FX33: {self.index_register} > {len(self.registers)}")
+            # input("Next?")
             return
         self.registers[self.index_register] = int(num[0])
         self.registers[self.index_register + 1] = int(num[2])
