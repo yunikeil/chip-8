@@ -11,8 +11,9 @@ _logger.setLevel(logging.DEBUG)
 
 class CPU:
     def __init__(
-        self, ram_size, font_data, start_pc, logger = _logger
+        self, ram_size, font_data, start_pc, display, logger = _logger
     ):
+        self.__display = display
         self.__logger = logger
         self.__start_pc = start_pc
 
@@ -58,7 +59,7 @@ class CPU:
         return b1, b2
 
     @staticmethod
-    def __parce_instruction(instruction: tuple) -> tuple:
+    def __parse_instruction(instruction: tuple) -> tuple:
         """Разбивает инструкцию (2 байта на ниблы по 4 бита)"""
         b1, b2 = instruction
         n1, n2 = b1 >> 4, b1 & 0x0F
@@ -114,6 +115,10 @@ class CPU:
                 self.__set_register_to_random(n2, n3, n4, b2)
             case (0xD, vx, vy, n):
                 self.__draw_sprite(vx, vy, n, b2)
+            case (0xE, _, 9, 0xE):
+                ...
+            case (0xE, _, 0xA, 1):
+                ...
             case (0xF, _, 0, 7):
                 self.__set_register_to_delay_timer(n2, n3, n4, b2)
             case (0xF, _, 1, 5):
@@ -130,13 +135,12 @@ class CPU:
                 self.__store_registers(n2, n3, n4, b2)
             case (0xF, _, 6, 5):
                 self.__load_registers(n2, n3, n4, b2)
-            # control
             case _:
                 raise ValueError(f"Unknown operation {list(map(hex, (n1, n2, n3, n4)))}")
 
     def __step(self):
         instruction = self.__get_current_instruction()
-        nibbles = self.__parce_instruction(instruction)
+        nibbles = self.__parse_instruction(instruction)
         self.__execute_instruction(nibbles, instruction)
 
     def run(self):
@@ -149,7 +153,7 @@ class CPU:
 
 
     def __clear_display(self):
-        self.display.clear()
+        self.__display.clear()
 
     def __return_from_subroutine(self):
         self.pc = self.stack.pop()
@@ -225,9 +229,19 @@ class CPU:
     def __draw_sprite(self, vx, vy, n, b2):
         x = self.registers[vx]
         y = self.registers[vy]
-        self.registers[0xF] = 1 if self.display.draw(x, y,
-                                                     self.ram[self.index_register: self.index_register + n]) else 0
-        self.display.show()
+        rg = self.__display.draw(x, y, self.ram[self.index_register: self.index_register + n])
+        self.registers[0xF] = 1 if rg else 0
+        self.__display.show()
+
+    def __skip_if_key_pressed(self, n2):
+        # if self.__control.is_pressed(self.registers[n2]):
+        #     self.pc += 2
+        self.__logger.info(self.registers[n2])
+
+    def __skip_if_key_not_pressed(self, n2):
+        # if not self.__control.is_pressed(self.registers[n2]):
+        #     self.pc += 2
+        self.__logger.info(self.registers[n2])
 
     def __set_register_to_delay_timer(self, n2, n3, n4, b2):
         self.__update_timers()
@@ -263,9 +277,5 @@ class CPU:
     def __load_registers(self, n2, n3, n4, b2):
         for ri in range(n2 + 1):
             self.registers[ri] = self.ram[self.index_register + ri]
-
-    def __skip_if_key_not_pressed(self, n2):
-        if not self.control.is_pressed(self.registers[n2]):
-            self.pc += 2
 
 
