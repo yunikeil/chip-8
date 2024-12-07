@@ -5,10 +5,12 @@ def byte_to_bits(b: int) -> list[int]:
 
 
 class ROMS(str, Enum):
-    TEST_OPCODE = "roms/test_opcode.ch8"
-    PONG = "roms/Pong (alt).ch8"
+    TEST_OPCODE = "test_opcode.ch8"
+    PONG = "Pong (alt).ch8"
+    DELAY_TEST = "delay_timer_test.ch8"
+    RANDOM_TEST = "random_number_test.ch8"
 
     def load(self) -> bytes:
-        with open(self.value, "rb") as rom_file:
+        with open(f"roms/{self.value}", "rb") as rom_file:
             return rom_file.read()
 

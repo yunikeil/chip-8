@@ -31,39 +31,6 @@ class CPU:
         self.sound_timer = 0
         self.sound_timer_start = 0.0
 
-        self.INSTRUCTION_MAP = {
-            (0, 0, 0xE, 0): self.clear_display,
-            (0, 0, 0xE, 0xE): self.return_from_subroutine,
-            (1, None, None, None): self.jump_to_address,
-            (2, None, None, None): self.call_subroutine,
-            (3, None, None, None): self.skip_if_equal,
-            (4, None, None, None): self.skip_if_not_equal,
-            (5, None, None, 0): self.skip_if_registers_equal,
-            (6, None, None, None): self.set_register,
-            (7, None, None, None): self.add_to_register,
-            (8, None, None, 0): self.set_register_to_register,
-            (8, None, None, 1): self.binary_or,
-            (8, None, None, 2): self.binary_and,
-            (8, None, None, 3): self.binary_xor,
-            (8, None, None, 4): self.add_with_carry,
-            (8, None, None, 5): self.sub_with_carry,
-            (8, None, None, 6): self.shift_right,
-            (8, None, None, 7): self.subn_with_carry,
-            (8, None, None, 0xE): self.shift_left,
-            (9, None, None, 0): self.skip_if_registers_not_equal,
-            (0xA, None, None, None): self.set_index_register,
-            (0xC, None, None, None): self.set_register_to_random,
-            (0xD, None, None, None): self.draw_sprite,
-            (0xF, None, 0, 7): self.set_register_to_delay_timer,
-            (0xF, None, 1, 5): self.set_delay_timer,
-            (0xF, None, 1, 8): self.set_sound_timer,
-            (0xF, None, 2, 9): self.set_index_to_font,
-            (0xF, None, 3, 3): self.binary_coded_decimal,
-            (0xF, None, 1, 0xE): self.add_to_index_register,
-            (0xF, None, 5, 5): self.store_registers,
-            (0xF, None, 6, 5): self.load_registers,
-        }
-
 
     def load(self, data: bytes | ROMS):
         if isinstance(data, ROMS):
@@ -72,6 +39,7 @@ class CPU:
         self.__logger.debug(f"Loaded: {len(data)} data")
         data_slice = self.__start_pc + len(data)
         self.ram[self.__start_pc:data_slice] = data
+
 
     def __update_timers(self):
         def update_timer(timer: int, timer_start: float):
@@ -97,24 +65,74 @@ class CPU:
         n3, n4 = b2 >> 4, b2 & 0x0F
         return n1, n2, n3, n4
 
-    def generate_key(self, n1, n2, n3, n4):
-        if (n1, None, None, None) in self.INSTRUCTION_MAP:
-            return n1, None, None, None
-        if (n1, n2, None, None) in self.INSTRUCTION_MAP:
-            return n1, n2, None, None
-        if (n1, n2, n3, None) in self.INSTRUCTION_MAP:
-            return n1, n2, n3, None
-        return n1, n2, n3, n4
-
     def __execute_instruction(self, nibbles: tuple, instruction: tuple):
         b1, b2 = instruction
         n1, n2, n3, n4 = nibbles
-        key = self.generate_key(n1, n2, n3, n4)
-        print(key)
-        if key in self.INSTRUCTION_MAP:
-            self.INSTRUCTION_MAP[key](n1, n2, n3, n4, b1, b2)
-        else:
-            raise ValueError(f"Unknown operation {tuple(map(hex, (n1, n2, n3, n4, b1, b2)))}")
+
+        match (n1, n2, n3, n4):
+            case (0, 0, 0xE, 0):
+                self.__clear_display()
+            case (0, 0, 0xE, 0xE):
+                self.__return_from_subroutine()
+            case (1, _, _, _):
+                self.__jump_to_address(n2, n3, n4, b2)
+            case (2, _, _, _):
+                self.__call_subroutine(n2, n3, n4, b2)
+            case (3, _, _, _):
+                self.__skip_if_equal(n2, n3, n4, b2)
+            case (4, _, _, _):
+                self.__skip_if_not_equal(n2, n3, n4, b2)
+            case (5, _, _, 0):
+                self.__skip_if_registers_equal(n2, n3, n4, b2)
+            case (6, _, _, _):
+                self.__set_register(n2, n3, n4, b2)
+            case (7, _, _, _):
+                self.__add_to_register(n2, n3, n4, b2)
+            case (8, _, _, 0):
+                self.__set_register_to_register(n2, n3, n4, b2)
+            case (8, _, _, 1):
+                self.__binary_or(n2, n3, n4, b2)
+            case (8, _, _, 2):
+                self.__binary_and(n2, n3, n4, b2)
+            case (8, _, _, 3):
+                self.__binary_xor(n2, n3, n4, b2)
+            case (8, _, _, 4):
+                self.__add_with_carry(n2, n3, n4, b2)
+            case (8, _, _, 5):
+                self.__sub_with_carry(n2, n3, n4, b2)
+            case (8, _, _, 6):
+                self.__shift_right(n2, n3, n4, b2)
+            case (8, _, _, 7):
+                self.__subn_with_carry(n2, n3, n4, b2)
+            case (8, _, _, 0xE):
+                self.__shift_left(n2, n3, n4, b2)
+            case (9, _, _, 0):
+                self.__skip_if_registers_not_equal(n2, n3, n4, b2)
+            case (0xA, _, _, _):
+                self.__set_index_register(n2, n3, n4, b2)
+            case (0xC, _, _, _):
+                self.__set_register_to_random(n2, n3, n4, b2)
+            case (0xD, vx, vy, n):
+                self.__draw_sprite(vx, vy, n, b2)
+            case (0xF, _, 0, 7):
+                self.__set_register_to_delay_timer(n2, n3, n4, b2)
+            case (0xF, _, 1, 5):
+                self.__set_delay_timer(n2, n3, n4, b2)
+            case (0xF, _, 1, 8):
+                self.__set_sound_timer(n2, n3, n4, b2)
+            case (0xF, _, 2, 9):
+                self.__set_index_to_font(n2, n3, n4, b2)
+            case (0xF, _, 3, 3):
+                self.__binary_coded_decimal(n2, n3, n4, b2)
+            case (0xF, _, 1, 0xE):
+                self.__add_to_index_register(n2, n3, n4, b2)
+            case (0xF, _, 5, 5):
+                self.__store_registers(n2, n3, n4, b2)
+            case (0xF, _, 6, 5):
+                self.__load_registers(n2, n3, n4, b2)
+            # control
+            case _:
+                raise ValueError(f"Unknown operation {list(map(hex, (n1, n2, n3, n4)))}")
 
     def __step(self):
         instruction = self.__get_current_instruction()
@@ -122,126 +140,132 @@ class CPU:
         self.__execute_instruction(nibbles, instruction)
 
     def run(self):
-        while True:
-            sleep(0.001)
-            self.__step()
+        try:
+            while True:
+                sleep(0.001)
+                self.__step()
+        except KeyboardInterrupt:
+            self.__logger.info("Interrupted")
 
 
-    def clear_display(self, n1, n2, n3, n4, b1, b2):
+    def __clear_display(self):
         self.display.clear()
 
-    def return_from_subroutine(self, n1, n2, n3, n4, b1, b2):
+    def __return_from_subroutine(self):
         self.pc = self.stack.pop()
 
-    def jump_to_address(self, n1, n2, n3, n4, b1, b2):
+    def __jump_to_address(self, n2, n3, n4, b2):
         self.pc = n2 << 8 | b2
 
-    def call_subroutine(self, n1, n2, n3, n4, b1, b2):
+    def __call_subroutine(self, n2, n3, n4, b2):
         self.stack.append(self.pc)
         self.pc = n2 << 8 | b2
 
-    def skip_if_equal(self, n1, n2, n3, n4, b1, b2):
+    def __skip_if_equal(self, n2, n3, n4, b2):
         if self.registers[n2] == b2:
             self.pc += 2
 
-    def skip_if_not_equal(self, n1, n2, n3, n4, b1, b2):
+    def __skip_if_not_equal(self, n2, n3, n4, b2):
         if self.registers[n2] != b2:
             self.pc += 2
 
-    def skip_if_registers_equal(self, n1, n2, n3, n4, b1, b2):
+    def __skip_if_registers_equal(self, n2, n3, n4, b2):
         if self.registers[n2] == self.registers[n3]:
             self.pc += 2
 
-    def set_register(self, n1, n2, n3, n4, b1, b2):
+    def __set_register(self, n2, n3, n4, b2):
         self.registers[n2] = b2
 
-    def add_to_register(self, n1, n2, n3, n4, b1, b2):
+    def __add_to_register(self, n2, n3, n4, b2):
         self.registers[n2] = (self.registers[n2] + b2) & 0xFF
 
-    def set_register_to_register(self, n1, n2, n3, n4, b1, b2):
+    def __set_register_to_register(self, n2, n3, n4, b2):
         self.registers[n2] = self.registers[n3]
 
-    def binary_or(self, n1, n2, n3, n4, b1, b2):
+    def __binary_or(self, n2, n3, n4, b2):
         self.registers[n2] |= self.registers[n3]
 
-    def binary_and(self, n1, n2, n3, n4, b1, b2):
+    def __binary_and(self, n2, n3, n4, b2):
         self.registers[n2] &= self.registers[n3]
 
-    def binary_xor(self, n1, n2, n3, n4, b1, b2):
+    def __binary_xor(self, n2, n3, n4, b2):
         self.registers[n2] ^= self.registers[n3]
 
-    def add_with_carry(self, n1, n2, n3, n4, b1, b2):
+    def __add_with_carry(self, n2, n3, n4, b2):
         sum_value = self.registers[n2] + self.registers[n3]
         self.registers[0xF] = sum_value >> 8
         self.registers[n2] = sum_value & 0xFF
 
-    def sub_with_carry(self, n1, n2, n3, n4, b1, b2):
+    def __sub_with_carry(self, n2, n3, n4, b2):
         self.registers[0xF] = 1 if self.registers[n2] > self.registers[n3] else 0
         self.registers[n2] = (self.registers[n2] - self.registers[n3]) & 0xFF
 
-    def shift_right(self, n1, n2, n3, n4, b1, b2):
+    def __shift_right(self, n2, n3, n4, b2):
         self.registers[0xF] = self.registers[n2] & 1
         self.registers[n2] = self.registers[n2] >> 1
 
-    def subn_with_carry(self, n1, n2, n3, n4, b1, b2):
+    def __subn_with_carry(self, n2, n3, n4, b2):
         self.registers[0xF] = 1 if self.registers[n3] > self.registers[n2] else 0
         self.registers[n2] = (self.registers[n3] - self.registers[n2]) & 0xFF
 
-    def shift_left(self, n1, n2, n3, n4, b1, b2):
+    def __shift_left(self, n2, n3, n4, b2):
         self.registers[0xF] = self.registers[n2] & 0x80 >> 7
         self.registers[n2] = (self.registers[n2] << 1) & 0xFF
 
-    def skip_if_registers_not_equal(self, n1, n2, n3, n4, b1, b2):
+    def __skip_if_registers_not_equal(self, n2, n3, n4, b2):
         if self.registers[n2] != self.registers[n3]:
             self.pc += 2
 
-    def set_index_register(self, n1, n2, n3, n4, b1, b2):
+    def __set_index_register(self, n2, n3, n4, b2):
         self.index_register = n2 << 8 | b2
 
-    def set_register_to_random(self, n1, n2, n3, n4, b1, b2):
+    def __set_register_to_random(self, n2, n3, n4, b2):
         self.registers[n2] = randint(0, 0xFF) & b2
 
-    def draw_sprite(self, vx, vy, n, n4, b1, b2):
+    def __draw_sprite(self, vx, vy, n, b2):
         x = self.registers[vx]
         y = self.registers[vy]
         self.registers[0xF] = 1 if self.display.draw(x, y,
                                                      self.ram[self.index_register: self.index_register + n]) else 0
         self.display.show()
 
-    def set_register_to_delay_timer(self, n1, n2, n3, n4, b1, b2):
+    def __set_register_to_delay_timer(self, n2, n3, n4, b2):
         self.__update_timers()
         self.registers[n2] = self.delay_timer
 
-    def set_delay_timer(self, n1, n2, n3, n4, b1, b2):
+    def __set_delay_timer(self, n2, n3, n4, b2):
         self.delay_timer = self.registers[n2]
         self.delay_timer_start = time()
 
-    def set_sound_timer(self, n1, n2, n3, n4, b1, b2):
+    def __set_sound_timer(self, n2, n3, n4, b2):
         self.sound_timer = self.registers[n2]
         self.sound_timer_start = time()
 
-    def set_index_to_font(self, n1, n2, n3, n4, b1, b2):
+    def __set_index_to_font(self, n2, n3, n4, b2):
         self.index_register = 0x50 + n2 * 5
 
-    def binary_coded_decimal(self, n1, n2, n3, n4, b1, b2):
+    def __binary_coded_decimal(self, n2, n3, n4, b2):
         num = str(int(self.registers[n2]))
         if self.index_register > len(self.registers):
-            print("WARNING: out of range on FX33: ", self.index_register)
+            self.__logger.warning("out of range on FX33: ", self.index_register)
             return
         self.registers[self.index_register] = int(num[0])
         self.registers[self.index_register + 1] = int(num[2])
         self.registers[self.index_register + 2] = int(num[2])
 
-    def add_to_index_register(self, n1, n2, n3, n4, b1, b2):
+    def __add_to_index_register(self, n2, n3, n4, b2):
         self.index_register = self.index_register + self.registers[n2]
 
-    def store_registers(self, n1, n2, n3, n4, b1, b2):
+    def __store_registers(self, n2, n3, n4, b2):
         for ri in range(n2 + 1):
             self.ram[self.index_register + ri] = self.registers[ri]
 
-    def load_registers(self, n1, n2, n3, n4, b1, b2):
+    def __load_registers(self, n2, n3, n4, b2):
         for ri in range(n2 + 1):
             self.registers[ri] = self.ram[self.index_register + ri]
 
+    def __skip_if_key_not_pressed(self, n2):
+        if not self.control.is_pressed(self.registers[n2]):
+            self.pc += 2
 
 
